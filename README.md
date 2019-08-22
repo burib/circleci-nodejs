@@ -1,0 +1,1 @@
+# circleci-nodejs-gitops-base-template
