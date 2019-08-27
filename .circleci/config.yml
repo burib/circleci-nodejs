@@ -8,19 +8,47 @@ jobs:
     steps:
       - checkout
       - run:
-          name: "Setup IS_PRODUCTION environment variable based on version pattern tag."
+          name: "Setup environment variables"
           command: |
-            version_tag_pattern="v[0-9]+(\.[0-9]+)*" # if pushed tag matches pattern
+            version_tag_pattern="v[0-9]+(\.[0-9]+)*" # if pushed tag matches release pattern
             if [[ $CIRCLE_TAG =~ $version_tag_pattern ]]; then
+              export HAS_RELEASE_TAG=true
+            else
+              export HAS_RELEASE_TAG=false
+            fi
+
+            CURRENT_BRANCH=$(git branch --show-current) # from git 2.2
+
+            if [[ "${CURRENT_BRANCH}" == "master" ]]; then
+                export IS_MASTER_BRANCH=true
+            else
+                export IS_MASTER_BRANCH=false
+            fi
+
+            if $IS_MASTER_BRANCH && $HAS_RELEASE_TAG ; then
               export IS_PRODUCTION=true
             else
               export IS_PRODUCTION=false
             fi
 
+            if [[ ! -z $CIRCLE_PULL_REQUEST ]]; then
+              export IS_PULL_REQUEST=true
+            else
+              export IS_PULL_REQUEST=false
+            fi
+
             echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other steps as well."
+            echo -e "export HAS_RELEASE_TAG=${HAS_RELEASE_TAG}" >> "$BASH_ENV"
+            echo -e "export CURRENT_BRANCH=${CURRENT_BRANCH}" >> "$BASH_ENV"
+            echo -e "export IS_MASTER_BRANCH=${IS_MASTER_BRANCH}" >> "$BASH_ENV"
+            echo -e "export IS_PULL_REQUEST=${IS_PULL_REQUEST}" >> "$BASH_ENV"
             echo -e "export IS_PRODUCTION=${IS_PRODUCTION}" >> "$BASH_ENV"
 
-            echo "Setting prod context: ${IS_PRODUCTION}"
+            echo "Setting 'HAS_RELEASE_TAG' variable to: ${HAS_RELEASE_TAG}"
+            echo "Setting 'CURRENT_BRANCH' variable to: ${CURRENT_BRANCH}"
+            echo "Setting 'IS_MASTER_BRANCH' variable to: ${IS_MASTER_BRANCH}"
+            echo "Setting 'IS_PULL_REQUEST' variable to: ${IS_PULL_REQUEST}"
+            echo "Setting 'IS_PRODUCTION' variable to: ${IS_PRODUCTION}"
       # Download and cache dependencies
       - restore_cache:
           keys:
