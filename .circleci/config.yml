@@ -17,7 +17,7 @@ jobs:
               export HAS_RELEASE_TAG=false
             fi
 
-            CURRENT_BRANCH=$(git branch --show-current) # from git 2.2
+            CURRENT_BRANCH=$(git symbolic-ref HEAD | cut -d"/" -f3)
 
             if [[ "${CURRENT_BRANCH}" == "master" ]]; then
                 export IS_MASTER_BRANCH=true
@@ -31,10 +31,17 @@ jobs:
               export IS_PRODUCTION=false
             fi
 
-            if [[ ! -z $CIRCLE_PULL_REQUEST ]]; then
-              export IS_PULL_REQUEST=true
+            if $IS_MASTER_BRANCH && !($HAS_RELEASE_TAG) ; then
+              export IS_STAGING=true
             else
+              export IS_STAGING=false
+            fi
+
+            if [ -z "$CI_PULL_REQUEST" ]
+            then
               export IS_PULL_REQUEST=false
+            else
+              export IS_PULL_REQUEST=true
             fi
 
             echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other steps as well."
@@ -47,8 +54,9 @@ jobs:
             echo "Setting 'HAS_RELEASE_TAG' variable to: ${HAS_RELEASE_TAG}"
             echo "Setting 'CURRENT_BRANCH' variable to: ${CURRENT_BRANCH}"
             echo "Setting 'IS_MASTER_BRANCH' variable to: ${IS_MASTER_BRANCH}"
-            echo "Setting 'IS_PULL_REQUEST' variable to: ${IS_PULL_REQUEST}"
             echo "Setting 'IS_PRODUCTION' variable to: ${IS_PRODUCTION}"
+            echo "Setting 'IS_STAGING' variable to: ${IS_STAGING}"
+            echo "Setting 'IS_PULL_REQUEST' variable to: ${IS_PULL_REQUEST}"
       # Download and cache dependencies
       - restore_cache:
           keys:
