@@ -64,16 +64,6 @@ jobs:
             echo "Setting 'IS_PULL_REQUEST' variable to: ${IS_PULL_REQUEST}"
             echo "Setting 'STAGE' variable to: ${STAGE}"
 
-
-#            mkdir ~/workspace
-#            touch ~/workspace/new-env-vars
-#            echo -e "export HAS_RELEASE_TAG=${HAS_RELEASE_TAG}" >> ~/workspace/new-env-vars
-#            echo -e "export CURRENT_BRANCH=${CURRENT_BRANCH}" >> ~/workspace/new-env-vars
-#            echo -e "export IS_MASTER_BRANCH=${IS_MASTER_BRANCH}" >> ~/workspace/new-env-vars
-#            echo -e "export IS_PULL_REQUEST=${IS_PULL_REQUEST}" >> ~/workspace/new-env-vars
-#            echo -e "export IS_PRODUCTION=${IS_PRODUCTION}" >> ~/workspace/new-env-vars
-#            echo -e "export STAGE=${STAGE}" >> ~/workspace/new-env-vars
-#            cat ~/workspace/new-env-vars >> $BASH_ENV
             echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other jobs as well."
       # Download and cache dependencies
       - restore_cache:
