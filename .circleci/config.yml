@@ -44,17 +44,12 @@ jobs:
               export IS_PULL_REQUEST=true
             fi
 
-            export STAGE="dev" # default stage is dev environment                           ->  dev.example.com
-            if $IS_PRODUCTION ; then
-              export STAGE="prod" # master + release tag goes to production environment     ->  example.com
-            fi
-            if $IS_STAGING ; then
-              export STAGE="staging" # master + no release tag goes to staging environment  ->  staging.examle.com
-            fi
-            export STAGE="staging"
-            if $IS_PULL_REQUEST ; then
-              export STAGE=$CIRCLE_USERNAME # pull request goes to PR opener's environment  ->  username.example.com
-            fi
+            echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other steps as well."
+            echo -e "export HAS_RELEASE_TAG=${HAS_RELEASE_TAG}" >> "$BASH_ENV"
+            echo -e "export CURRENT_BRANCH=${CURRENT_BRANCH}" >> "$BASH_ENV"
+            echo -e "export IS_MASTER_BRANCH=${IS_MASTER_BRANCH}" >> "$BASH_ENV"
+            echo -e "export IS_PULL_REQUEST=${IS_PULL_REQUEST}" >> "$BASH_ENV"
+            echo -e "export IS_PRODUCTION=${IS_PRODUCTION}" >> "$BASH_ENV"
 
             echo "Setting 'HAS_RELEASE_TAG' variable to: ${HAS_RELEASE_TAG}"
             echo "Setting 'CURRENT_BRANCH' variable to: ${CURRENT_BRANCH}"
@@ -62,9 +57,6 @@ jobs:
             echo "Setting 'IS_PRODUCTION' variable to: ${IS_PRODUCTION}"
             echo "Setting 'IS_STAGING' variable to: ${IS_STAGING}"
             echo "Setting 'IS_PULL_REQUEST' variable to: ${IS_PULL_REQUEST}"
-            echo "Setting 'STAGE' variable to: ${STAGE}"
-
-            echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other jobs as well."
       # Download and cache dependencies
       - restore_cache:
           keys:
