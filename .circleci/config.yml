@@ -1,12 +1,58 @@
 version: 2.1
-jobs:
-  build:
-    docker:
-      # images at https://circleci.com/docs/2.0/circleci-images/
-      - image: circleci/node:latest
-    working_directory: ~/repo
+
+on-master-brach-with-release-tag: &on-master-brach-with-release-tag
+  filters:
+    tags:
+      only: /v[0-9]+(\.[0-9]+)*/
+    branches:
+      only: /master/
+
+on-master-brach-with-no-release-tag: &on-master-brach-with-no-release-tag
+  filters:
+    tags:
+      ignore: /v[0-9]+(\.[0-9]+)*/
+    branches:
+      only: /master/
+
+container_config_node_latest: &container_config_node_latest
+  docker:
+    # images at https://circleci.com/docs/2.0/circleci-images/
+    - image: circleci/node:latest
+
+
+commands:
+  checkout_repo:
+    description: "restores repository from cache if exists and not changed, otherwise checks out the latest."
     steps:
+      - restore_cache:
+          keys:
+            - source-v1-{{ .Branch }}-{{ .Revision }}
+            - source-v1-{{ .Branch }}-
+            - source-v1-
       - checkout
+      - save_cache:
+          key: source-v1-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - ".git"
+  install_node_dependencies:
+    description: "restores node_modules from cache if exists and package-lock not changed, otherwise checks out the latest."
+    steps:
+      - restore_cache:
+          keys:
+            # when lock file changes, use increasingly general patterns to restore cache
+            - node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
+            - node-v1-{{ .Branch }}-
+            - node-v1-
+      - run: npm ci
+      - save_cache:
+          paths:
+            - ~/usr/local/lib/node_modules  # location depends on npm version
+            - node_modules
+            - ~/.npm
+          key: node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
+  setup_environment_variables:
+    description: "Setup environment variables"
+    steps:
       - run:
           name: "Setup environment variables"
           command: |
@@ -44,12 +90,26 @@ jobs:
               export IS_PULL_REQUEST=true
             fi
 
-            echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other steps as well."
-            echo -e "export HAS_RELEASE_TAG=${HAS_RELEASE_TAG}" >> "$BASH_ENV"
-            echo -e "export CURRENT_BRANCH=${CURRENT_BRANCH}" >> "$BASH_ENV"
-            echo -e "export IS_MASTER_BRANCH=${IS_MASTER_BRANCH}" >> "$BASH_ENV"
-            echo -e "export IS_PULL_REQUEST=${IS_PULL_REQUEST}" >> "$BASH_ENV"
-            echo -e "export IS_PRODUCTION=${IS_PRODUCTION}" >> "$BASH_ENV"
+            export STAGE="dev" # default stage is dev environment                           ->  dev.example.com
+            if $IS_PRODUCTION ; then
+              export STAGE="prod" # master + release tag goes to production environment     ->  example.com
+            fi
+            if $IS_STAGING ; then
+              export STAGE="staging" # master + no release tag goes to staging environment  ->  staging.examle.com
+            fi
+            export STAGE="staging"
+            if $IS_PULL_REQUEST ; then
+              export STAGE=$CIRCLE_USERNAME # pull request goes to PR opener's environment  ->  username.example.com
+            fi
+
+            mkdir ~/workspace
+            touch ~/workspace/new-env-vars
+            echo -e "export HAS_RELEASE_TAG=${HAS_RELEASE_TAG}" >> ~/workspace/new-env-vars
+            echo -e "export CURRENT_BRANCH=${CURRENT_BRANCH}" >> ~/workspace/new-env-vars
+            echo -e "export IS_MASTER_BRANCH=${IS_MASTER_BRANCH}" >> ~/workspace/new-env-vars
+            echo -e "export IS_PULL_REQUEST=${IS_PULL_REQUEST}" >> ~/workspace/new-env-vars
+            echo -e "export IS_PRODUCTION=${IS_PRODUCTION}" >> ~/workspace/new-env-vars
+            echo -e "export STAGE=${STAGE}" >> ~/workspace/new-env-vars
 
             echo "Setting 'HAS_RELEASE_TAG' variable to: ${HAS_RELEASE_TAG}"
             echo "Setting 'CURRENT_BRANCH' variable to: ${CURRENT_BRANCH}"
@@ -57,16 +117,162 @@ jobs:
             echo "Setting 'IS_PRODUCTION' variable to: ${IS_PRODUCTION}"
             echo "Setting 'IS_STAGING' variable to: ${IS_STAGING}"
             echo "Setting 'IS_PULL_REQUEST' variable to: ${IS_PULL_REQUEST}"
+            echo "Setting 'STAGE' variable to: ${STAGE}"
 
-      # Download and cache dependencies
-      - restore_cache:
-          keys:
-            - v1-dependencies-{{ checksum "package-lock.json" }}
-            # fallback to using the latest cache if no exact match is found
-            - v1-dependencies-
-      - run: npm ci
-      - save_cache:
+            cat ~/workspace/new-env-vars >> $BASH_ENV
+            echo "Exporting variables to \"$BASH_ENV\" file, so we can use the variable in other jobs as well."
+      - persist_to_workspace:
+          root: ~/workspace
           paths:
-            - node_modules
-          key: v1-dependencies-{{ checksum "package-lock.json" }}
-      - run: npm -v
+            - new-env-vars
+  get_environment_variables:
+    steps:
+      - attach_workspace:
+          at: ~/workspace
+      - run:
+          name: "Show Environment variables to use"
+          command: cat ~/workspace/new-env-vars
+      - run:
+          name: "making environment variables available in current Bash Environment"
+          command: cat ~/workspace/new-env-vars >> $BASH_ENV
+  cache-build-artifact:
+    steps:
+      - save_cache:
+          key: v1-dist-{{ .Environment.CIRCLE_BRANCH }}-{{ .Environment.CIRCLE_SHA1 }}
+          paths:
+            - dist
+  restore-build-artifact:
+    steps:
+      - restore_cache:
+          key: v1-dist-{{ .Environment.CIRCLE_BRANCH }}-{{ .Environment.CIRCLE_SHA1 }}
+      - run:
+          name: list dist folder's content
+          command: ls -la dist
+jobs:
+  setup:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - checkout_repo
+      - install_node_dependencies
+      - setup_environment_variables
+  build:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: build app
+          command: mkdir dist && echo "$(date -u +%Y-%m-%d_%H:%M:%S)" > ./dist/test.txt
+      - run:
+          name: build app
+          command: cat ~/workspace/new-env-vars >> dist/test2.txt
+      - run:
+          name: list dist folder's content
+          command: ls -la dist
+      - cache-build-artifact
+  lint:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: lint
+          command: |
+            echo "Linting... aka analyze code for potential errors."
+
+  unit-tests:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: running unit tests
+          command: |
+            echo "running unit tests"
+
+  e2e-tests:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: running e2e tests
+          command: |
+            echo "running e2e tests"
+
+  deploy:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - restore-build-artifact
+      - run:
+          name: list dist folder
+          command: ls -la dist
+      - run:
+          name: deploying
+          command: |
+            echo "deploying dist to $STAGE environment"
+
+workflows:
+  version: 2.1
+  # this runs on PR-s and braches.
+  PULL_REQUEST_WORKFLOW:
+    jobs:
+      - setup
+      - build:
+          requires:
+            - setup
+      - lint:
+          requires:
+            - setup
+      - e2e-tests:
+          requires:
+            - setup
+      - unit-tests:
+          requires:
+            - setup
+      - deploy:
+          requires:
+            - e2e-tests
+            - unit-tests
+            - build
+            - lint
+  # This only runs on master branch without release tag
+  STAGING_WORKFLOW:
+    jobs:
+      - setup:
+          <<: *on-master-brach-with-no-release-tag
+      - deploy:
+          <<: *on-master-brach-with-no-release-tag
+          requires:
+            - setup
+  # This only runs on master branch with release tag
+  PRODUCTION_WORKFLOW:
+    jobs:
+      - setup:
+          <<: *on-master-brach-with-release-tag
+      - build:
+          <<: *on-master-brach-with-release-tag
+          requires:
+            - setup
+      - lint:
+          <<: *on-master-brach-with-release-tag
+          requires:
+            - setup
+      - e2e-tests:
+          <<: *on-master-brach-with-release-tag
+          requires:
+            - setup
+      - unit-tests:
+          <<: *on-master-brach-with-release-tag
+          requires:
+            - setup
+      - deploy:
+          <<: *on-master-brach-with-release-tag
+          requires:
+            - e2e-tests
+            - unit-tests
+            - build
+            - lint
