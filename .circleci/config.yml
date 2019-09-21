@@ -36,7 +36,6 @@ commands:
             - source-v1-{{ .Branch }}-
             - source-v1-
       - checkout
-      - run: git log -3 --oneline
       - run: npm ci
       - save_cache:
           key: source-v1-{{ .Branch }}-{{ .Revision }}
@@ -61,6 +60,8 @@ commands:
     description: "Setup environment variables"
     steps:
       - run: git log -3 --oneline
+      - run: git log -3 --oneline --no-merges
+      - run: git log HEAD~1 -1 --pretty=format:"%H"
       - run:
           name: "Setup environment variables"
           command: |
