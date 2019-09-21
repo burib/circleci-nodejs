@@ -154,7 +154,7 @@ commands:
             - dist
   restore-build-artifact:
     steps:
-      - run: echo "${$PRIOR_HASH}" > ~/workspace/prior.hash
+      - run: echo "${PRIOR_HASH}" > ~/workspace/prior.hash
       - restore_cache:
           keys:
             - v1-dist-{{ .Environment.CIRCLE_SHA1 }}
