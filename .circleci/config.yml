@@ -70,6 +70,8 @@ commands:
             fi
 
             CURRENT_BRANCH=$(git symbolic-ref HEAD | cut -d"/" -f3)
+            export CURRENT_HASH=$(git rev-parse --short HEAD)
+            export PRIOR_HASH=$(git rev-parse --short HEAD~1)
 
             if [[ "${CURRENT_BRANCH}" == "master" ]]; then
                 export IS_MASTER_BRANCH=true
@@ -103,7 +105,6 @@ commands:
             if $IS_STAGING ; then
               export STAGE="staging" # master + no release tag goes to staging environment  ->  staging.examle.com
             fi
-            export STAGE="staging"
             if $IS_PULL_REQUEST ; then
               export STAGE=$CIRCLE_USERNAME # pull request goes to PR opener's environment  ->  username.example.com
             fi
@@ -116,7 +117,11 @@ commands:
             echo -e "export IS_PULL_REQUEST=${IS_PULL_REQUEST}" >> ~/workspace/new-env-vars
             echo -e "export IS_PRODUCTION=${IS_PRODUCTION}" >> ~/workspace/new-env-vars
             echo -e "export STAGE=${STAGE}" >> ~/workspace/new-env-vars
+            echo -e "export CURRENT_HASH=${CURRENT_HASH}" >> ~/workspace/new-env-vars
+            echo -e "export PRIOR_HASH=${PRIOR_HASH}" >> ~/workspace/new-env-vars
 
+            echo "Setting 'CURRENT_HASH' variable to: ${CURRENT_HASH}"
+            echo "Setting 'PRIOR_HASH' variable to: ${PRIOR_HASH}"
             echo "Setting 'HAS_RELEASE_TAG' variable to: ${HAS_RELEASE_TAG}"
             echo "Setting 'CURRENT_BRANCH' variable to: ${CURRENT_BRANCH}"
             echo "Setting 'IS_MASTER_BRANCH' variable to: ${IS_MASTER_BRANCH}"
@@ -144,13 +149,17 @@ commands:
   cache-build-artifact:
     steps:
       - save_cache:
-          key: v1-dist-{{ .Environment.CIRCLE_BRANCH }}-{{ .Environment.CIRCLE_SHA1 }}
+          key: v1-dist-{{ .Environment.CIRCLE_SHA1 }}
           paths:
             - dist
   restore-build-artifact:
     steps:
       - restore_cache:
-          key: v1-dist-{{ .Environment.CIRCLE_BRANCH }}-{{ .Environment.CIRCLE_SHA1 }}
+          keys:
+            - v1-dist-{{ .Environment.CIRCLE_SHA1 }}
+            # if cache is not present then load any most recent one
+            - v1-dist-{{ $PRIOR_HASH }}
+            - v1-dist-
       - run:
           name: list dist folder's content
           command: ls -la dist
@@ -214,6 +223,9 @@ jobs:
       - get_environment_variables
       - restore-build-artifact
       - run:
+          name: insert stage related config into dist folder
+          command: echo $STAGE >> dist/$STAGE.config
+      - run:
           name: list dist folder
           command: ls -la dist
       - run:
@@ -223,7 +235,7 @@ jobs:
 
 workflows:
   version: 2.1
-  # this runs on PR-s and braches.
+  # this runs on PR-s and branches.
   PULL_REQUEST_WORKFLOW:
     jobs:
       - setup:
