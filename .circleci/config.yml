@@ -154,6 +154,7 @@ commands:
             - dist
   restore-build-artifact:
     steps:
+      - run: PRIOR_HASH=$PRIOR_HASH
       - restore_cache:
           keys:
             - v1-dist-{{ .Environment.CIRCLE_SHA1 }}
