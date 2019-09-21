@@ -145,7 +145,7 @@ commands:
           command: cat ~/workspace/new-env-vars
       - run:
           name: "making environment variables available in current Bash Environment"
-          command: cat ~/workspace/new-env-vars >> $BASH_ENV
+          command: cat ~/workspace/{{ .Environment.PRIOR_HASH } >> $BASH_ENV
   cache-build-artifact:
     steps:
       - save_cache:
@@ -154,6 +154,7 @@ commands:
             - dist
   restore-build-artifact:
     steps:
+      - PRIOR_HASH=$PRIOR_HASH
       - restore_cache:
           keys:
             - v1-dist-{{ .Environment.CIRCLE_SHA1 }}
