@@ -51,7 +51,6 @@ commands:
             - node-v1-{{ .Branch }}-
             - node-v1-
       - run: git log -3 --oneline
-      - run: git pull
       - save_cache:
           paths:
             - ~/usr/local/lib/node_modules  # location depends on npm version
