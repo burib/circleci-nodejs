@@ -36,6 +36,7 @@ commands:
             - source-v1-{{ .Branch }}-
             - source-v1-
       - checkout
+      - run: git log -3 --oneline
       - run: npm ci
       - save_cache:
           key: source-v1-{{ .Branch }}-{{ .Revision }}
@@ -50,7 +51,6 @@ commands:
             - node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
             - node-v1-{{ .Branch }}-
             - node-v1-
-      - run: git log -3 --oneline
       - save_cache:
           paths:
             - ~/usr/local/lib/node_modules  # location depends on npm version
@@ -60,6 +60,7 @@ commands:
   setup_environment_variables:
     description: "Setup environment variables"
     steps:
+      - run: git log -3 --oneline
       - run:
           name: "Setup environment variables"
           command: |
@@ -72,7 +73,7 @@ commands:
 
             CURRENT_BRANCH=$(git symbolic-ref HEAD | cut -d"/" -f3)
             export CURRENT_HASH=$(git rev-parse HEAD)
-            export PRIOR_HASH=$(git rev-parse $CURRENT_HASH~1)
+            export PRIOR_HASH=$(git log HEAD~1 -1 --pretty=format:"%H")
 
             if [[ "${CURRENT_BRANCH}" == "master" ]]; then
                 export IS_MASTER_BRANCH=true
