@@ -178,7 +178,7 @@ jobs:
       - get_environment_variables
       - run:
           name: build app
-          command: mkdir dist && echo "$(date -u +%Y-%m-%d_%H:%M:%S)" > ./dist/test.txt
+          command: mkdir dist && echo "$(date -u +%Y-%m-%d_%H:%M:%S)" > ./dist/hash-$CIRCLE_SHA1.txt
       - run:
           name: build app
           command: cat ~/workspace/new-env-vars >> dist/test2.txt
