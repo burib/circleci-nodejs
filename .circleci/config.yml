@@ -64,6 +64,7 @@ commands:
       - run: git log HEAD~1 -1 --oneline --no-merges
       - run: git log HEAD~1 -1 --pretty=format:"%H"
       - run: git log HEAD~1 -1 --pretty=format:"%H" --no-merges
+      - run: git log -1 --pretty=format:"%H" --no-merges
       - run:
           name: "Setup environment variables"
           command: |
@@ -76,7 +77,7 @@ commands:
 
             CURRENT_BRANCH=$(git symbolic-ref HEAD | cut -d"/" -f3)
             export CURRENT_HASH=$(git rev-parse HEAD)
-            export PRIOR_HASH=$(git log HEAD~1 -1 --pretty=format:"%H")
+            export PRIOR_HASH=$(git log -1 --pretty=format:"%H" --no-merges)
 
             if [[ "${CURRENT_BRANCH}" == "master" ]]; then
                 export IS_MASTER_BRANCH=true
