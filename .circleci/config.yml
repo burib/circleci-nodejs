@@ -36,6 +36,7 @@ commands:
             - source-v1-{{ .Branch }}-
             - source-v1-
       - checkout
+      - run: git pull
       - save_cache:
           key: source-v1-{{ .Branch }}-{{ .Revision }}
           paths:
