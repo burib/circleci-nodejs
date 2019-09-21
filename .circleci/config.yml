@@ -61,7 +61,9 @@ commands:
     steps:
       - run: git log -3 --oneline
       - run: git log -3 --oneline --no-merges
+      - run: git log HEAD~1 -1 --oneline --no-merges
       - run: git log HEAD~1 -1 --pretty=format:"%H"
+      - run: git log HEAD~1 -1 --pretty=format:"%H" --no-merges
       - run:
           name: "Setup environment variables"
           command: |
