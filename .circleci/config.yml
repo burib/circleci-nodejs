@@ -36,7 +36,7 @@ commands:
             - source-v1-{{ .Branch }}-
             - source-v1-
       - checkout
-      - run: git pull
+      - run: npm ci
       - save_cache:
           key: source-v1-{{ .Branch }}-{{ .Revision }}
           paths:
@@ -50,7 +50,7 @@ commands:
             - node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
             - node-v1-{{ .Branch }}-
             - node-v1-
-      - run: npm ci
+      - run: git fetch
       - save_cache:
           paths:
             - ~/usr/local/lib/node_modules  # location depends on npm version
