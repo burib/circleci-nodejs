@@ -181,7 +181,7 @@ jobs:
           command: mkdir dist && echo "$(date -u +%Y-%m-%d_%H:%M:%S)" > ./dist/hash-$CIRCLE_SHA1.txt
       - run:
           name: build app
-          command: cat ~/workspace/new-env-vars >> dist/test42.txt
+          command: cat ~/workspace/new-env-vars >> dist/test1.txt
       - run:
           name: list dist folder's content
           command: ls -la dist
