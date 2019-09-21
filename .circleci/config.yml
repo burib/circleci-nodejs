@@ -70,8 +70,8 @@ commands:
             fi
 
             CURRENT_BRANCH=$(git symbolic-ref HEAD | cut -d"/" -f3)
-            export CURRENT_HASH=$(git rev-parse --short HEAD)
-            export PRIOR_HASH=$(git rev-parse --short HEAD~1)
+            export CURRENT_HASH=$(git rev-parse HEAD)
+            export PRIOR_HASH=$(git rev-parse $CURRENT_HASH~1)
 
             if [[ "${CURRENT_BRANCH}" == "master" ]]; then
                 export IS_MASTER_BRANCH=true
