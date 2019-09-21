@@ -50,8 +50,7 @@ commands:
             - node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
             - node-v1-{{ .Branch }}-
             - node-v1-
-      - run: echo $CIRCLE_PROJECT_REPONAME
-      - run: echo $CIRCLE_REPOSITORY_URL
+      - run: git log -3 --oneline
       - run: git pull
       - save_cache:
           paths:
