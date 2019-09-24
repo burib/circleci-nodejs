@@ -25,11 +25,14 @@ container_config_node_latest: &container_config_node_latest
   docker:
     # images at https://circleci.com/docs/2.0/circleci-images/
     - image: circleci/node:latest
+  environment:
+    MYPRECIOUS: "myspecialvalue"
 
 commands:
   checkout_repo:
     description: "restores repository from cache if exists and not changed, otherwise checks out the latest."
     steps:
+      - run: 
       - restore_cache:
           keys:
             - source-v1-{{ .Branch }}-{{ .Revision }}
