@@ -32,7 +32,6 @@ commands:
   checkout_repo:
     description: "restores repository from cache if exists and not changed, otherwise checks out the latest."
     steps:
-      - run: 
       - restore_cache:
           keys:
             - source-v1-{{ .Branch }}-{{ .Revision }}
