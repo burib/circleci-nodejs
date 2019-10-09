@@ -135,6 +135,9 @@ jobs:
           name: running e2e tests
           command: |
             echo "running e2e tests"
+      - run:
+          name: echo current chrome version
+          command: google-chrome --version
 
   deploy:
     <<: *container_config_node_latest
