@@ -1,0 +1,215 @@
+version: 2.1
+
+on-master-branch-with-release-tag: &on-master-branch-with-release-tag
+  filters:
+    tags:
+      only: /v[0-9]+(\.[0-9]+)*/
+    branches:
+      ignore: /.*/
+
+on-master-branch-with-no-release-tag: &on-master-branch-with-no-release-tag
+  filters:
+    tags:
+      ignore: /.*/
+    branches:
+      only: master
+
+on-branch: &on-branch
+  filters:
+    tags:
+      ignore: /.*/
+    branches:
+      ignore: master
+
+container_config_node_latest: &container_config_node_latest
+  docker:
+    # images at https://circleci.com/docs/2.0/circleci-images/
+    - image: circleci/node:latest
+
+commands:
+  checkout_repo:
+    description: "restores repository from cache if exists and not changed, otherwise checks out the latest."
+    steps:
+      - restore_cache:
+          keys:
+            - source-v1-{{ .Branch }}-{{ .Revision }}
+            - source-v1-{{ .Branch }}-
+            - source-v1-
+      - checkout
+      - run: npm ci
+      - save_cache:
+          key: source-v1-{{ .Branch }}-{{ .Revision }}
+          paths:
+            - ".git"
+  install_node_dependencies:
+    description: "restores node_modules from cache if exists and package-lock not changed, otherwise checks out the latest."
+    steps:
+      - restore_cache:
+          keys:
+            # when lock file changes, use increasingly general patterns to restore cache
+            - node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
+            - node-v1-{{ .Branch }}-
+            - node-v1-
+      - save_cache:
+          paths:
+            - ~/usr/local/lib/node_modules  # location depends on npm version
+            - node_modules
+            - ~/.npm
+          key: node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
+  setup_context_variables:
+    description: Setup context variables"
+    steps:
+      - run:
+          name: Set up context variables ( IS_PRODUCTION, IS_PULL_REQUEST, IS_STAGING, CURRENT_HASH, etc )
+          command: bash ./scripts/setup-context-variables.sh
+      - persist_to_workspace:
+          root: ~/workspace
+          paths:
+            - new-env-vars
+  get_environment_variables:
+    steps:
+      - attach_workspace:
+          at: ~/workspace
+      - run:
+          name: "Show Environment variables to use"
+          command: cat ~/workspace/new-env-vars
+      - run:
+          name: "making environment variables available in current Bash Environment"
+          command: cat ~/workspace/new-env-vars >> $BASH_ENV
+
+jobs:
+  setup:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - checkout_repo
+      - install_node_dependencies
+      - setup_context_variables
+  build:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: build app
+          command: mkdir dist && echo "$(date -u +%Y-%m-%d_%H:%M:%S)" > ./dist/hash-$CIRCLE_SHA1.txt
+      - run:
+          name: copy dist to persist place
+          command: cp -a dist/. ~/workspace/dist/
+      - run:
+          name: ls -la ~/workspace
+          command: ls -la ~/workspace
+      - persist_to_workspace:
+          root: ~/workspace/
+          paths:
+            - dist
+      - run:
+          name: list dist folder's content
+          command: ls -la dist
+  lint:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: lint
+          command: |
+            echo "Linting... aka analyze code for potential errors."
+
+  unit-tests:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: running unit tests
+          command: |
+            echo "running unit tests"
+
+  e2e-tests:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - run:
+          name: running e2e tests
+          command: |
+            echo "running e2e tests"
+      - run:
+          name: echo current chrome version
+          command: google-chrome --version
+
+  deploy:
+    <<: *container_config_node_latest
+    working_directory: ~/repo
+    steps:
+      - get_environment_variables
+      - attach_workspace:
+          at: ~/workspace
+      - run:
+          name: insert stage related config into dist folder
+          command: echo $STAGE >> ~/workspace/dist/$STAGE.config
+      - run:
+          name: list dist folder
+          command: ls -la ~/workspace/dist
+      - run:
+          name: deploying
+          command: |
+            echo "deploying dist to $STAGE environment"
+
+workflows:
+  version: 2.1
+  # this runs on PR-s and branches.
+  PULL_REQUEST_WORKFLOW:
+    jobs:
+      - setup:
+          <<: *on-branch
+      - build:
+          <<: *on-branch
+          requires:
+            - setup
+      - lint:
+          <<: *on-branch
+          requires:
+            - setup
+      - e2e-tests:
+          <<: *on-branch
+          requires:
+            - setup
+      - unit-tests:
+          <<: *on-branch
+          requires:
+            - setup
+      - deploy:
+          <<: *on-branch
+          requires:
+            - e2e-tests
+            - unit-tests
+            - build
+            - lint
+  # This only runs on master branch without release tag
+  STAGING_WORKFLOW:
+    jobs:
+      - setup:
+          <<: *on-master-branch-with-no-release-tag
+      - build:
+          <<: *on-master-branch-with-no-release-tag
+          requires:
+            - setup
+      - deploy:
+          <<: *on-master-branch-with-no-release-tag
+          requires:
+            - build
+  # This only runs on master branch with release tag
+  PRODUCTION_WORKFLOW:
+    jobs:
+      - setup:
+          <<: *on-master-branch-with-release-tag
+      - build:
+          <<: *on-master-branch-with-release-tag
+          requires:
+            - setup
+      - deploy:
+          <<: *on-master-branch-with-release-tag
+          requires:
+            - build
