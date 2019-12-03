@@ -1,13 +1,8 @@
 version: 2.1
+orbs:
+  aws-cli: circleci/aws-cli@0.1.18 #https://circleci.com/orbs/registry/orb/circleci/aws-cli
 
-on-master-branch-with-release-tag: &on-master-branch-with-release-tag
-  filters:
-    tags:
-      only: /v[0-9]+(\.[0-9]+)*/
-    branches:
-      ignore: /.*/
-
-on-master-branch-with-no-release-tag: &on-master-branch-with-no-release-tag
+on-master-branch: &on-master-branch
   filters:
     tags:
       ignore: /.*/
@@ -21,10 +16,10 @@ on-branch: &on-branch
     branches:
       ignore: master
 
-container_config_node_latest: &container_config_node_latest
+container_node_with_browsers: &container_node_with_browsers
   docker:
     # images at https://circleci.com/docs/2.0/circleci-images/
-    - image: circleci/node:latest
+    - image: circleci/node:12-browsers
 
 commands:
   checkout_repo:
@@ -36,12 +31,15 @@ commands:
             - source-v1-{{ .Branch }}-
             - source-v1-
       - checkout
-      - run: npm ci
       - save_cache:
           key: source-v1-{{ .Branch }}-{{ .Revision }}
           paths:
             - ".git"
   install_node_dependencies:
+    description: install node dependencies based on package-lock.json
+    steps:
+      - run: npm ci
+  restore_node_dependencies:
     description: "restores node_modules from cache if exists and package-lock not changed, otherwise checks out the latest."
     steps:
       - restore_cache:
@@ -57,7 +55,7 @@ commands:
             - ~/.npm
           key: node-v1-{{ .Branch }}-{{ checksum "package-lock.json" }}
   setup_context_variables:
-    description: Setup context variables"
+    description: Setup context variables
     steps:
       - run:
           name: Set up context variables ( IS_PRODUCTION, IS_PULL_REQUEST, IS_STAGING, CURRENT_HASH, etc )
@@ -76,17 +74,28 @@ commands:
       - run:
           name: "making environment variables available in current Bash Environment"
           command: cat ~/workspace/new-env-vars >> $BASH_ENV
+  setup_aws_cli:
+    description: setup and configure AWS credentials and config.
+    steps:
+      - aws-cli/install
+      - run:
+          name: setup and configure AWS credentials and config.
+          command: bash ./scripts/setup-and-config-aws-cli.sh
+      - run:
+          name: aws-cli version
+          command: aws --version
 
 jobs:
   setup:
-    <<: *container_config_node_latest
+    <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
       - checkout_repo
+      - restore_node_dependencies
       - install_node_dependencies
       - setup_context_variables
   build:
-    <<: *container_config_node_latest
+    <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
       - get_environment_variables
@@ -107,45 +116,66 @@ jobs:
           name: list dist folder's content
           command: ls -la dist
   lint:
-    <<: *container_config_node_latest
+    <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
       - get_environment_variables
       - run:
           name: lint
-          command: |
-            echo "Linting... aka analyze code for potential errors."
+          command: npm run lint --if-present
 
   unit-tests:
-    <<: *container_config_node_latest
+    <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
       - get_environment_variables
       - run:
           name: running unit tests
-          command: |
-            echo "running unit tests"
+          command: npm run test --if-present
 
   e2e-tests:
-    <<: *container_config_node_latest
+    <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
       - get_environment_variables
-      - run:
-          name: running e2e tests
-          command: |
-            echo "running e2e tests"
       - run:
           name: echo current chrome version
           command: google-chrome --version
+      - run:
+          name: running e2e tests
+          command: npm run e2e --if-present
 
   deploy:
-    <<: *container_config_node_latest
+    <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
+      - checkout_repo
       - get_environment_variables
       - attach_workspace:
           at: ~/workspace
+      - setup_aws_cli
+      - run:
+          name: insert stage related config into dist folder
+          command: echo $STAGE >> ~/workspace/dist/$STAGE.config
+      - run:
+          name: list dist folder
+          command: ls -la ~/workspace/dist
+      - run:
+          name: deploying
+          command: |
+            echo "deploying dist to $STAGE environment"
+
+  deploy_to_production:
+    <<: *container_node_with_browsers
+    working_directory: ~/repo
+    environment:
+      IS_PRODUCTION: true
+    steps:
+      - checkout_repo
+      - get_environment_variables
+      - attach_workspace:
+          at: ~/workspace
+      - setup_aws_cli
       - run:
           name: insert stage related config into dist folder
           command: echo $STAGE >> ~/workspace/dist/$STAGE.config
@@ -187,29 +217,27 @@ workflows:
             - unit-tests
             - build
             - lint
-  # This only runs on master branch without release tag
-  STAGING_WORKFLOW:
+  # This only runs on master branch
+  MASTER_WORKFLOW:
     jobs:
       - setup:
-          <<: *on-master-branch-with-no-release-tag
+          <<: *on-master-branch
       - build:
-          <<: *on-master-branch-with-no-release-tag
+          <<: *on-master-branch
           requires:
             - setup
       - deploy:
-          <<: *on-master-branch-with-no-release-tag
+          <<: *on-master-branch
           requires:
             - build
-  # This only runs on master branch with release tag
-  PRODUCTION_WORKFLOW:
-    jobs:
-      - setup:
-          <<: *on-master-branch-with-release-tag
-      - build:
-          <<: *on-master-branch-with-release-tag
+      # Wait for manual approval to deploy to production
+      - approve_deployment_to_production:
+          type: approval
+          <<: *on-master-branch
           requires:
-            - setup
-      - deploy:
-          <<: *on-master-branch-with-release-tag
+            - deploy
+      # Deploy to production after approval
+      - deploy_to_production:
+          <<: *on-master-branch
           requires:
-            - build
+            - approve_deployment_to_production
