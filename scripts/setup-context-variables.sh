@@ -33,8 +33,8 @@ elif $IS_PULL_REQUEST ; then
   # if you want to have it deployed to your custom stage create a variable in circleCI project Environment Variables page
   # https://circleci.com/gh/USERNAME/PROJECT/edit#env-vars
   # and create a variable called STAGE_NAME_DEV with the value of $CIRCLE_USERNAME or $CIRCLE_PR_USERNAME
-  # CIRCLE_USERNAME	    = The GitHub or Bitbucket username of the user who triggered the build.
-  # CIRCLE_PR_USERNAME	= The GitHub or Bitbucket username of the user who created the pull request. Only available on forked PRs.
+  # CIRCLE_USERNAME       = The GitHub or Bitbucket username of the user who triggered the build.
+  # CIRCLE_PR_USERNAME    = The GitHub or Bitbucket username of the user who created the pull request. Only available on forked PRs.
   export STAGE="$(echo ${STAGE_NAME_DEV-dev})" # pull request goes to PR opener's environment  ->  dev.example.com
 fi
 
