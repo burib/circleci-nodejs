@@ -98,6 +98,7 @@ jobs:
     <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
+      - checkout_repo
       - get_environment_variables
       - run:
           name: build app
@@ -119,6 +120,7 @@ jobs:
     <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
+      - checkout_repo
       - get_environment_variables
       - run:
           name: lint
@@ -128,6 +130,7 @@ jobs:
     <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
+      - checkout_repo
       - get_environment_variables
       - run:
           name: running unit tests
@@ -137,6 +140,7 @@ jobs:
     <<: *container_node_with_browsers
     working_directory: ~/repo
     steps:
+      - checkout_repo
       - get_environment_variables
       - run:
           name: echo current chrome version
