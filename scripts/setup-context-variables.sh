@@ -24,13 +24,18 @@ else
     export IS_MASTER_BRANCH=false
 fi
 
-export STAGE="dev" # default stage is dev environment                           ->  dev.example.com
 if $IS_PRODUCTION ; then
-  export STAGE="prod" # if IS_PRODUCTION variable is set, prod environment      ->  example.com
+  export STAGE="$(echo ${STAGE_NAME_PROD-prod})" # if IS_PRODUCTION variable is set, prod environment      ->  example.com
 elif $IS_MASTER_BRANCH ; then
-  export STAGE="staging" # master goes to staging environment at first          ->  staging.example.com
+  export STAGE="$(echo ${STAGE_NAME_STAGING-staging})" # master goes to staging environment at first          ->  staging.example.com
 elif $IS_PULL_REQUEST ; then
-  export STAGE=$CIRCLE_USERNAME # pull request goes to PR opener's environment  ->  username.example.com
+  # default deployment stage is dev
+  # if you want to have it deployed to your custom stage create a variable in circleCI project Environment Variables page
+  # https://circleci.com/gh/USERNAME/PROJECT/edit#env-vars
+  # and create a variable called STAGE_NAME_DEV with the value of $CIRCLE_USERNAME or $CIRCLE_PR_USERNAME
+  # CIRCLE_USERNAME	    = The GitHub or Bitbucket username of the user who triggered the build.
+  # CIRCLE_PR_USERNAME	= The GitHub or Bitbucket username of the user who created the pull request. Only available on forked PRs.
+  export STAGE="$(echo ${STAGE_NAME_DEV-dev})" # pull request goes to PR opener's environment  ->  dev.example.com
 fi
 
 mkdir ~/workspace
